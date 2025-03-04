@@ -60,9 +60,10 @@ html, body {
 
 .xterm {
   position: relative;
-  user-select: none;
-  -ms-user-select: none;
-  -webkit-user-select: none;
+  user-select: text; /* Enable text selection */
+  -ms-user-select: text;
+  -webkit-user-select: text;
+  -moz-user-select: text;
   padding: 0; /* Remove padding to match CMD appearance */
 }
 
@@ -87,7 +88,7 @@ html, body {
   top: 0;
   width: 0;
   height: 0;
-  z-index: -5;
+  z-index: -10;
   white-space: nowrap;
   overflow: hidden;
   resize: none;
@@ -115,12 +116,26 @@ html, body {
   left: 0;
   top: 0;
   bottom: 0;
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: thin;
+  scrollbar-color: #333 #000;
 }
 
 .xterm .xterm-viewport::-webkit-scrollbar {
-  display: none; /* Chrome, Safari, Opera */
+  width: 8px;
+  height: 8px;
+}
+
+.xterm .xterm-viewport::-webkit-scrollbar-thumb {
+  background-color: #333;
+  border-radius: 4px;
+}
+
+.xterm .xterm-viewport::-webkit-scrollbar-thumb:hover {
+  background-color: #444;
+}
+
+.xterm .xterm-viewport::-webkit-scrollbar-track {
+  background-color: #000;
 }
 
 .xterm .xterm-screen {
@@ -297,7 +312,7 @@ box-shadow: var(--vscode-scrollbar-shadow, #000) 6px 0 6px -6px inset;
 /* Adjust selection behavior:
    Only highlight text nodes (using inline-block display) rather than entire row */
 .xterm .xterm-selection div {
-  display: inline-block;
+  position: absolute;
   width: auto !important;
   background-color: rgba(255, 255, 255, 0.3) !important;
   border-radius: 2px;
@@ -306,4 +321,25 @@ box-shadow: var(--vscode-scrollbar-shadow, #000) 6px 0 6px -6px inset;
 /* Reinforce cursor style */
 .xterm-cursor-block {
   background-color: #fff !important;
+}
+
+.xterm .xterm-selection {
+  opacity: 0.3;
+  position: absolute;
+  z-index: 1;
+}
+
+.xterm-cursor {
+  background-color: #fff;
+  border-color: #fff;
+  color: #000;
+}
+
+.xterm-cursor.xterm-cursor-blink {
+  animation: xterm-cursor-blink 1.2s infinite step-end;
+}
+
+@keyframes xterm-cursor-blink {
+  0%, 50% { opacity: 1; }
+  50.1%, 100% { opacity: 0; }
 }
