@@ -1,0 +1,1 @@
+{"root":["./src/main.ts","./src/vite-env.d.ts","./src/types/xterm.d.ts","./src/utils/terminalcommands.ts","./src/utils/terminalstorage.ts","./src/app.vue","./src/components/helloworld.vue","./src/components/terminal.vue"],"errors":true,"version":"5.6.3"}

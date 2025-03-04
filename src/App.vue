@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue'
 import Terminal from './components/Terminal.vue'
 import HelloWorld from './components/HelloWorld.vue'
 import { setTerminalInstance } from './utils/terminalCommands'
+import './assets/fonts.css' // Import the fonts CSS file
 
 const showTerminal = ref(true)
 const terminalRef = ref(null)

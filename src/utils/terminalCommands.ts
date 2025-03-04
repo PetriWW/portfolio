@@ -294,10 +294,15 @@ export function handleCommand(cmd: string, term: Terminal, emit: (event: 'exit')
       break;
       
     case 'reset':
-      clearTerminalState()
-      term.writeln('Terminal state has been reset.')
-      term.writeln('Your settings and command history will not be saved when you close the terminal.')
-      term.writeln('This change will take effect after you restart the terminal.')
+      clearTerminalState();
+      term.writeln('Terminal state has been reset.');
+      term.writeln('Your settings and command history will not be saved when you close the terminal.');
+      term.writeln('You may need to restart the terminal for all changes to take effect.');
+      
+      // Use terminalComponentInstance if available for more detailed reset
+      if (terminalComponentInstance && terminalComponentInstance.clearSavedState) {
+        terminalComponentInstance.clearSavedState(true); // Show confirmation
+      }
       break;
       
     case 'debug':

@@ -8,17 +8,30 @@
 
     /* Bundler mode */
     "moduleResolution": "bundler",
-    "allowImportingTsExtensions": true,
+    "noEmit": true,
     "isolatedModules": true,
     "moduleDetection": "force",
-    "noEmit": true,
-
+    
+    /* Project reference requirements */
+    "composite": true,
+    "declaration": true,
+    
     /* Linting */
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    "noUncheckedSideEffectImports": true
+    "noUncheckedSideEffectImports": true,
+    "allowSyntheticDefaultImports": true,
+    
+    /* Types - Only include xterm */
+    "types": ["xterm"],
+    
+    /* Prevent 'verbatimModuleSyntax' from causing issues with the imports */
+    "verbatimModuleSyntax": false,
+    
+    /* Output directory for declaration files */
+    "outDir": "./dist"
   },
   "include": ["vite.config.ts"]
 }

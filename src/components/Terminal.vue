@@ -39,12 +39,19 @@ let commandHistory: string[] = []
 let historyPosition = 0
 let fontSize = 16 // Default font size, adjustable
 
+// Add variables for line editing
+let cursorPosition = 0; // Track cursor position within the current line
+
 // Save terminal state to localStorage
 function saveState(): void {
+  // Get current theme settings if terminal exists
+  const themeSettings = terminal?.options.theme || null;
+  
   saveTerminalState({
     fontSize,
     commandHistory,
     promptString,
+    theme: themeSettings,
     timestamp: Date.now()
   });
 }
@@ -217,6 +224,35 @@ onMounted(() => {
     
     // Save initial state
     saveState()
+
+    // Disable browser handling for most keys
+    terminal.attachCustomKeyEventHandler((ev) => {
+      // Block browser from handling these keys when terminal has focus
+      if (ev.type === 'keydown' && (
+          ev.key === 'ArrowUp' || 
+          ev.key === 'ArrowDown' || 
+          ev.key === 'ArrowLeft' || 
+          ev.key === 'ArrowRight' ||
+          ev.key === 'Home' ||
+          ev.key === 'End' ||
+          ev.ctrlKey)) {
+        return false; // Don't let browser handle these
+      }
+      return true; // Let terminal handle other keys
+    });
+
+    // Add this at the end of onMounted
+    
+    // Verify command history
+    console.log(`Loaded ${commandHistory.length} command history items`);
+    if (commandHistory.length > 0) {
+      console.log(`First command: ${commandHistory[0]}`);
+      console.log(`Last command: ${commandHistory[commandHistory.length - 1]}`);
+    }
+    
+    // Test all addons are working
+    const addonsStatus = testAddons();
+    console.log(`All addons loaded correctly: ${addonsStatus ? 'Yes' : 'No'}`);
   }
 })
 
@@ -276,11 +312,15 @@ function displayWelcomeMessage(hasHistory: boolean = false) {
 function handleKeyEvent(e: { key: string, domEvent: KeyboardEvent }) {
   if (!terminal) return;
   
-  const ev = e.domEvent
-  const printable = !ev.altKey && !ev.ctrlKey && !ev.metaKey
+  const ev = e.domEvent;
+  const printable = !ev.altKey && !ev.ctrlKey && !ev.metaKey;
+  
+  // Prevent default handling to take full control
+  ev.preventDefault();
   
   if (ev.key === 'Enter') {
-    // Process the command
+    // Process command (unchanged)
+    // ...existing Enter key logic...
     if (currentLine.trim()) {
       commandHistory.push(currentLine)
       historyPosition = commandHistory.length
@@ -290,6 +330,7 @@ function handleKeyEvent(e: { key: string, domEvent: KeyboardEvent }) {
         if (event === 'exit') emit('exit')
       })
       currentLine = ''
+      cursorPosition = 0 // Reset cursor position
       terminal.write('\r\n' + promptString)
       
       // Save state after executing a command
@@ -300,43 +341,116 @@ function handleKeyEvent(e: { key: string, domEvent: KeyboardEvent }) {
       terminal.write(promptString)
     }
   } else if (ev.key === 'Backspace') {
-    if (currentLine.length > 0) {
-      currentLine = currentLine.slice(0, -1)
-      terminal.write('\b \b')
+    // Use the dedicated backspace handler
+    handleBackspace();
+  } else if (ev.key === 'Delete') {
+    // Delete character at cursor position
+    if (cursorPosition < currentLine.length) {
+      const newLine = currentLine.substring(0, cursorPosition) + 
+                      currentLine.substring(cursorPosition + 1);
+      currentLine = newLine;
+      
+      // Redraw without moving cursor
+      redrawInputLine();
     }
+  } else if (ev.key === 'ArrowLeft') {
+    // Move cursor left if not at beginning
+    if (cursorPosition > 0) {
+      cursorPosition--;
+      terminal.write('\x1b[D'); // ANSI escape code to move cursor left
+    }
+  } else if (ev.key === 'ArrowRight') {
+    // Move cursor right if not at end
+    if (cursorPosition < currentLine.length) {
+      cursorPosition++;
+      terminal.write('\x1b[C'); // ANSI escape code to move cursor right
+    }
+  } else if (ev.key === 'Home') {
+    // Move cursor to start of input (not prompt)
+    cursorPosition = 0;
+    terminal.write(`\r${promptString}`);
+  } else if (ev.key === 'End') {
+    // Move cursor to end of input
+    cursorPosition = currentLine.length;
+    terminal.write(`\r${promptString}${currentLine}`);
   } else if (ev.key === 'ArrowUp') {
-    if (historyPosition > 0) {
-      historyPosition--
-      clearCurrentLine()
-      currentLine = commandHistory[historyPosition]
-      terminal.write(currentLine)
-    }
+    // Improved history navigation
+    navigateHistory('up');
   } else if (ev.key === 'ArrowDown') {
-    if (historyPosition < commandHistory.length - 1) {
-      historyPosition++
-      clearCurrentLine()
-      currentLine = commandHistory[historyPosition]
-      terminal.write(currentLine)
-    } else if (historyPosition === commandHistory.length - 1) {
-      historyPosition++
-      clearCurrentLine()
-      currentLine = ''
-    }
-  } else if (printable) {
-    currentLine += e.key
-    terminal.write(e.key)
+    // Improved history navigation
+    navigateHistory('down');
+  } else if (printable && e.key.length === 1) { // Only single characters
+    // Insert character at cursor position
+    const newLine = currentLine.substring(0, cursorPosition) + 
+                   e.key + 
+                   currentLine.substring(cursorPosition);
+    currentLine = newLine;
+    cursorPosition++;
+    
+    // Redraw the line with new content
+    redrawInputLine();
   }
 }
 
+// Helper function to redraw the input line - Fix for lingering characters
+function redrawInputLine() {
+  if (!terminal) return;
+  
+  // Calculate the maximum possible length the line could have had
+  // This ensures we clear enough characters even if the line was longer before
+  const maxPossibleLength = Math.max(
+    promptString.length + currentLine.length,
+    terminal.cols // Ensure we clear at least one full line
+  );
+  
+  // Move to beginning of line
+  terminal.write('\r');
+  
+  // Clear the entire line with spaces (more robust clearing)
+  terminal.write(' '.repeat(maxPossibleLength));
+  
+  // Write prompt and current line
+  terminal.write('\r');
+  terminal.write(promptString);
+  terminal.write(currentLine);
+  
+  // Position cursor correctly
+  terminal.write('\r');
+  terminal.write(promptString);
+  if (cursorPosition > 0) {
+    terminal.write(currentLine.substring(0, cursorPosition));
+  }
+}
+
+// Also update the clearCurrentLine function for consistency
 function clearCurrentLine() {
   if (!terminal) return;
   
-  // Clear the current input line
-  terminal.write('\r' + promptString)
-  for (let i = 0; i < currentLine.length; i++) {
-    terminal.write(' ')
-  }
-  terminal.write('\r' + promptString)
+  // Move to beginning of line
+  terminal.write('\r');
+  
+  // Clear the entire line with spaces
+  terminal.write(' '.repeat(Math.max(promptString.length + currentLine.length, terminal.cols)));
+  
+  // Draw prompt
+  terminal.write('\r' + promptString);
+  
+  // Reset cursor position
+  cursorPosition = 0;
+}
+
+// Add this utility function to handle backspace properly
+function handleBackspace() {
+  if (!terminal || currentLine.length === 0 || cursorPosition === 0) return;
+  
+  // Remove the character before cursor
+  const newLine = currentLine.substring(0, cursorPosition - 1) + 
+                  currentLine.substring(cursorPosition);
+  currentLine = newLine;
+  cursorPosition--;
+  
+  // Clear and redraw the entire line - this is crucial for fixing the bug
+  redrawInputLine();
 }
 
 // Updated function with showMessage parameter and state saving
@@ -363,14 +477,26 @@ function setFontSize(size: number, showMessage: boolean = true) {
 }
 
 // Add a command to clear saved state
-function clearSavedState() {
+function clearSavedState(showConfirmation: boolean = true): void {
   if (!terminal) return;
   
   try {
+    // Clear local storage
     localStorage.removeItem('terminal_state');
-    terminal.writeln('Saved terminal state has been cleared.');
+    
+    if (showConfirmation) {
+      terminal.writeln('Terminal state has been reset to defaults.');
+      terminal.writeln('Settings like font size, command history, and theme will be reset on next launch.');
+      
+      // Show what was cleared
+      terminal.writeln('');
+      terminal.writeln('Cleared:');
+      terminal.writeln(`- Font size (was ${fontSize}, reset to default)`);
+      terminal.writeln(`- Command history (${commandHistory.length} entries)`);
+      terminal.writeln('- Theme settings');
+    }
   } catch (error) {
-    terminal.writeln('Failed to clear saved state: ' + error);
+    terminal.writeln(`Failed to clear saved state: ${error}`);
   }
 }
 
@@ -435,7 +561,7 @@ function searchFor(text: string): void {
   searchText.value = text;
   showSearch.value = true;
   setTimeout(() => {
-    if (searchInput.value) {
+    if (searchInput.value && searchAddon) { // Proper null check
       searchInput.value.focus();
       searchAddon.findNext(text);
     }
@@ -459,6 +585,85 @@ defineExpose({
   searchFor,
   fit
 })
+
+// Improved command history navigation function
+function navigateHistory(direction: 'up' | 'down'): void {
+  if (!terminal) return;
+  
+  if (direction === 'up') {
+    // Navigate up (older commands)
+    if (historyPosition > 0) {
+      historyPosition--;
+      currentLine = commandHistory[historyPosition] || '';
+      cursorPosition = currentLine.length; // Move cursor to end of line
+      
+      // Use the clearCurrentLine function here instead of directly calling redrawInputLine
+      clearCurrentLine();
+      terminal.write(currentLine);
+      
+      // Debug - log history navigation
+      console.log(`History up: position=${historyPosition}, command="${currentLine}"`);
+    }
+  } else {
+    // Navigate down (newer commands)
+    if (historyPosition < commandHistory.length - 1) {
+      historyPosition++;
+      currentLine = commandHistory[historyPosition] || '';
+      cursorPosition = currentLine.length;
+      
+      // Use the clearCurrentLine function here instead of directly calling redrawInputLine
+      clearCurrentLine();
+      terminal.write(currentLine);
+      
+      // Debug - log history navigation
+      console.log(`History down: position=${historyPosition}, command="${currentLine}"`);
+    } else if (historyPosition === commandHistory.length - 1) {
+      // At the most recent command, go to empty prompt
+      historyPosition = commandHistory.length;
+      currentLine = '';
+      cursorPosition = 0;
+      
+      // Use the clearCurrentLine function here
+      clearCurrentLine();
+      
+      // Debug - log history navigation reset
+      console.log('History reset to empty prompt');
+    }
+  }
+}
+
+// Test each addon to ensure they're loaded correctly
+function testAddons(): boolean {
+  if (!terminal) return false;
+  
+  let result = true;
+  
+  // Check FitAddon
+  if (!fitAddon) {
+    console.error('FitAddon not loaded');
+    result = false;
+  }
+  
+  // Check SearchAddon
+  if (!searchAddon) {
+    console.error('SearchAddon not loaded');
+    result = false;
+  }
+  
+  // Check SerializeAddon
+  if (!serializeAddon) {
+    console.error('SerializeAddon not loaded');
+    result = false;
+  }
+  
+  // Check ClipboardAddon
+  if (!clipboardAddon) {
+    console.error('ClipboardAddon not loaded');
+    result = false;
+  }
+  
+  return result;
+}
 </script>
 
 <template>
