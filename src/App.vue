@@ -1,17 +1,25 @@
 <script setup lang="ts">
+import { ref } from 'vue'
+import Terminal from './components/Terminal.vue'
 import HelloWorld from './components/HelloWorld.vue'
+
+const showTerminal = ref(true)
+const handleExit = () => {
+  showTerminal.value = false
+}
 </script>
 
 <template>
-  <div>
+  <Terminal v-if="showTerminal" @exit="handleExit" />
+  <div v-else class="gui-content">
     <a href="https://vite.dev" target="_blank">
       <img src="/vite.svg" class="logo" alt="Vite logo" />
     </a>
     <a href="https://vuejs.org/" target="_blank">
       <img src="./assets/vue.svg" class="logo vue" alt="Vue logo" />
     </a>
+    <HelloWorld msg="Vite + Vue" />
   </div>
-  <HelloWorld msg="Vite + Vue" />
 </template>
 
 <style scoped>
