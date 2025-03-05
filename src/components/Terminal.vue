@@ -227,18 +227,10 @@ onMounted(() => {
 
     // Disable browser handling for most keys
     terminal.attachCustomKeyEventHandler((ev) => {
-      // Block browser from handling these keys when terminal has focus
-      if (ev.type === 'keydown' && (
-          ev.key === 'ArrowUp' || 
-          ev.key === 'ArrowDown' || 
-          ev.key === 'ArrowLeft' || 
-          ev.key === 'ArrowRight' ||
-          ev.key === 'Home' ||
-          ev.key === 'End' ||
-          ev.ctrlKey)) {
-        return false; // Don't let browser handle these
+      if (ev.type === 'keydown') {
+        // Remove or modify any 'return false' logic for arrow keys here.
       }
-      return true; // Let terminal handle other keys
+      return true; // Ensure arrow keys reach onKey and navigateHistory
     });
 
     // Add this at the end of onMounted
@@ -353,6 +345,13 @@ function handleKeyEvent(e: { key: string, domEvent: KeyboardEvent }) {
       // Redraw without moving cursor
       redrawInputLine();
     }
+  } else if (ev.key === 'Escape') {
+    // If search UI is open, close it; otherwise just ignore Escape
+    if (showSearch.value) {
+      showSearch.value = false;
+      terminal?.focus();
+    }
+    return;
   } else if (ev.key === 'ArrowLeft') {
     // Move cursor left if not at beginning
     if (cursorPosition > 0) {
@@ -395,31 +394,17 @@ function handleKeyEvent(e: { key: string, domEvent: KeyboardEvent }) {
 // Helper function to redraw the input line - Fix for lingering characters
 function redrawInputLine() {
   if (!terminal) return;
-  
-  // Calculate the maximum possible length the line could have had
-  // This ensures we clear enough characters even if the line was longer before
-  const maxPossibleLength = Math.max(
-    promptString.length + currentLine.length,
-    terminal.cols // Ensure we clear at least one full line
-  );
-  
-  // Move to beginning of line
+
+  // Move to start of line, then clear it fully
   terminal.write('\r');
-  
-  // Clear the entire line with spaces (more robust clearing)
-  terminal.write(' '.repeat(maxPossibleLength));
-  
-  // Write prompt and current line
+  terminal.write(' '.repeat(terminal.cols));
   terminal.write('\r');
-  terminal.write(promptString);
-  terminal.write(currentLine);
-  
-  // Position cursor correctly
-  terminal.write('\r');
-  terminal.write(promptString);
-  if (cursorPosition > 0) {
-    terminal.write(currentLine.substring(0, cursorPosition));
-  }
+
+  // Write prompt + current text
+  terminal.write(promptString + currentLine);
+
+  // Position cursor after typed text
+  terminal.write(`\x1b[G\x1b[${promptString.length + cursorPosition}C`);
 }
 
 // Also update the clearCurrentLine function for consistency
@@ -599,6 +584,7 @@ function navigateHistory(direction: 'up' | 'down'): void {
       
       // Use the clearCurrentLine function here instead of directly calling redrawInputLine
       clearCurrentLine();
+      cursorPosition = currentLine.length; // Ensure cursor is at end
       terminal.write(currentLine);
       
       // Debug - log history navigation
@@ -613,6 +599,7 @@ function navigateHistory(direction: 'up' | 'down'): void {
       
       // Use the clearCurrentLine function here instead of directly calling redrawInputLine
       clearCurrentLine();
+      cursorPosition = currentLine.length; // Ensure cursor is at end
       terminal.write(currentLine);
       
       // Debug - log history navigation

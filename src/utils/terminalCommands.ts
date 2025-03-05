@@ -99,7 +99,6 @@ let terminalComponentInstance: any = null;
 // Export the function to set the terminal component instance
 export function setTerminalInstance(instance: any) {
   terminalComponentInstance = instance;
-  console.log('Terminal instance set:', instance ? 'Yes' : 'No');
 }
 
 // Handle terminal commands
@@ -294,16 +293,20 @@ export function handleCommand(cmd: string, term: Terminal, emit: (event: 'exit')
       break;
       
     case 'reset':
-      clearTerminalState();
       term.writeln('Terminal state has been reset.');
-      term.writeln('Your settings and command history will not be saved when you close the terminal.');
-      term.writeln('You may need to restart the terminal for all changes to take effect.');
+      term.writeln('Your settings and command history will be cleared.');
+      term.writeln('');
       
-      // Use terminalComponentInstance if available for more detailed reset
-      if (terminalComponentInstance && terminalComponentInstance.clearSavedState) {
-        terminalComponentInstance.clearSavedState(true); // Show confirmation
+      // Use the new resetTerminal method to clear everything properly
+      if (terminalComponentInstance && terminalComponentInstance.resetTerminal) {
+        terminalComponentInstance.resetTerminal();
+        term.writeln('Reset complete. Terminal reinitialized.');
+      } else {
+        // Fallback if resetTerminal is not available
+        clearTerminalState();
+        term.writeln('Settings cleared but memory not reset. You may need to restart the terminal.');
       }
-      break;
+      return;
       
     case 'debug':
       // Show debug information about fonts and localStorage
